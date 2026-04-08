@@ -1,0 +1,25 @@
+[package]
+name = "meet-type"
+version = "0.0.1"
+edition = "2024"
+description = "Shared data types for meet-server and meet-client communication"
+repository = "https://gitlab.protontech.ch/meet/meet-type"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tls_codec = "0.4.2"
+
+[dependencies.mls-spec]
+git = "https://github.com/OtaK/mls-spec.git"
+branch = "feat/draft-galore"
+features = [
+    "tlspl-utils",
+    "draft-mahy-mls-ratchet-tree-options",
+    "draft-mahy-mls-semiprivatemessage",
+    "draft-mahy-mls-sd-cwt-credential",
+    "draft-ietf-mls-extensions",
+]
+
+[dev-dependencies]
+serde_json = "1.0"
