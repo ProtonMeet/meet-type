@@ -83,6 +83,7 @@ pub struct UserJoinTimeMetric {
     pub is_vp9_decode_supported: Option<bool>,
     /// Whether VP9 encode is supported
     pub is_vp9_encode_supported: Option<bool>,
+    pub total_join_time_ms: Option<u64>,
 }
 
 /// User retry count metric data (room_id and user_id are in the request level)
