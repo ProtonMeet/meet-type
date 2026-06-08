@@ -23,6 +23,7 @@ pub enum RTCMessageInContent {
     LiveKitAdminChange(LiveKitAdminChangeInfo),
     Welcome(MlsWelcomeInfo),
     JoinRequest(JoinRequestInfo),
+    JoinDecision(JoinDecisionInfo),
 }
 
 /// Ratchet tree and group info bundle for MLS external commits
@@ -117,6 +118,62 @@ pub struct JoinRequestInfo {
     pub participant_uid: Vec<u8>,
     pub encrypted_key_package: Vec<u8>,
     pub expires_at: u64,
+}
+
+/// Outcome of a join request. Correlates with `JoinRequestInfo::request_id`.
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    tls_codec::TlsSize,
+    tls_codec::TlsDeserialize,
+    tls_codec::TlsSerialize,
+)]
+pub struct JoinDecisionInfo {
+    pub request_id: Vec<u8>,
+    pub status: JoinDecisionStatus,
+}
+
+/// Status of a join request decision.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    tls_codec::TlsSize,
+    tls_codec::TlsDeserialize,
+    tls_codec::TlsSerialize,
+)]
+#[repr(u8)]
+pub enum JoinDecisionStatus {
+    Admitted = 0,
+    Rejected = 1,
+}
+
+/// Error type for join decision status conversion
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct JoinDecisionStatusError;
+
+impl std::fmt::Display for JoinDecisionStatusError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Invalid join decision status")
+    }
+}
+
+impl std::error::Error for JoinDecisionStatusError {}
+
+impl TryFrom<u8> for JoinDecisionStatus {
+    type Error = JoinDecisionStatusError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(JoinDecisionStatus::Admitted),
+            1 => Ok(JoinDecisionStatus::Rejected),
+            _ => Err(JoinDecisionStatusError),
+        }
+    }
 }
 
 /// Version enum for GroupInfo data format
@@ -254,6 +311,13 @@ mod tests {
         }
     }
 
+    fn sample_join_decision_info(status: JoinDecisionStatus) -> JoinDecisionInfo {
+        JoinDecisionInfo {
+            request_id: b"req-123".to_vec(),
+            status,
+        }
+    }
+
     #[test]
     fn test_group_info_version_default() {
         assert_eq!(GroupInfoVersion::default(), GroupInfoVersion::V1);
@@ -294,5 +358,57 @@ mod tests {
 
         let bytes = content.tls_serialize_detached().unwrap();
         assert_eq!(bytes[0], 7);
+    }
+
+    #[test]
+    fn test_join_decision_status_try_from() {
+        assert_eq!(
+            JoinDecisionStatus::try_from(0),
+            Ok(JoinDecisionStatus::Admitted)
+        );
+        assert_eq!(
+            JoinDecisionStatus::try_from(1),
+            Ok(JoinDecisionStatus::Rejected)
+        );
+        assert!(JoinDecisionStatus::try_from(99).is_err());
+    }
+
+    #[test]
+    fn test_join_decision_info_tls_roundtrip() {
+        for status in [JoinDecisionStatus::Admitted, JoinDecisionStatus::Rejected] {
+            let info = sample_join_decision_info(status);
+
+            let mut bytes = Vec::new();
+            info.tls_serialize(&mut bytes).unwrap();
+
+            let decoded = JoinDecisionInfo::tls_deserialize(&mut bytes.as_slice()).unwrap();
+            assert_eq!(info, decoded);
+        }
+    }
+
+    #[test]
+    fn test_rtc_message_in_join_decision_tls_roundtrip() {
+        let msg = RTCMessageIn {
+            content: RTCMessageInContent::JoinDecision(sample_join_decision_info(
+                JoinDecisionStatus::Admitted,
+            )),
+        };
+
+        let mut bytes = Vec::new();
+        msg.tls_serialize(&mut bytes).unwrap();
+
+        let decoded = RTCMessageIn::tls_deserialize(&mut bytes.as_slice()).unwrap();
+        assert_eq!(msg, decoded);
+    }
+
+    #[test]
+    fn test_rtc_message_in_content_join_decision_discriminant() {
+        let content = RTCMessageInContent::JoinDecision(JoinDecisionInfo {
+            request_id: vec![],
+            status: JoinDecisionStatus::Rejected,
+        });
+
+        let bytes = content.tls_serialize_detached().unwrap();
+        assert_eq!(bytes[0], 8);
     }
 }
