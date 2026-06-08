@@ -318,6 +318,12 @@ pub struct ServiceMetricsRequest {
     pub user_rejoin: Option<UserRejoinMetric>,
 }
 
+impl Default for ServiceMetricsRequest {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ServiceMetricsRequest {
     pub fn new() -> Self {
         Self {
@@ -659,6 +665,7 @@ mod tests {
             mls_join_time_ms: 1000,
             is_vp9_decode_supported: None,
             is_vp9_encode_supported: None,
+            total_join_time_ms: None,
         });
 
         assert_eq!(metric.metric_type(), MetricType::UserJoinTime);
@@ -701,6 +708,7 @@ mod tests {
             mls_join_time_ms: 1000,
             is_vp9_decode_supported: None,
             is_vp9_encode_supported: None,
+            total_join_time_ms: None,
         });
 
         // Try to convert to wrong type should return the original metric
@@ -720,6 +728,7 @@ mod tests {
                     mls_join_time_ms: 1000,
                     is_vp9_decode_supported: None,
                     is_vp9_encode_supported: None,
+                    total_join_time_ms: None,
                 }),
                 ServiceMetric::UserRetryCount(UserRetryCountMetric { retry_count: 2 }),
                 ServiceMetric::ErrorCode(ErrorCodeMetric {
@@ -771,6 +780,7 @@ mod tests {
                 mls_join_time_ms: 1000,
                 is_vp9_decode_supported: None,
                 is_vp9_encode_supported: None,
+                total_join_time_ms: None,
             }),
             user_retry_count: Some(UserRetryCountMetric { retry_count: 3 }),
             error_code: Some(ErrorCodeMetric {
@@ -806,6 +816,7 @@ mod tests {
                 mls_join_time_ms: 1000,
                 is_vp9_decode_supported: None,
                 is_vp9_encode_supported: None,
+                total_join_time_ms: None,
             }),
             user_retry_count: None,
             error_code: None,
@@ -945,6 +956,7 @@ mod tests {
             mls_join_time_ms: 1000,
             is_vp9_decode_supported: None,
             is_vp9_encode_supported: None,
+            total_join_time_ms: None,
         });
 
         // Try to convert to wrong type should return the original metric
@@ -1025,6 +1037,7 @@ mod tests {
             mls_join_time_ms: 1000,
             is_vp9_decode_supported: Some(true),
             is_vp9_encode_supported: Some(false),
+            total_join_time_ms: None,
         });
 
         assert_eq!(metric.metric_type(), MetricType::UserJoinTime);
@@ -1064,6 +1077,7 @@ mod tests {
             mls_join_time_ms: 1000,
             is_vp9_decode_supported: None,
             is_vp9_encode_supported: None,
+            total_join_time_ms: None,
         };
 
         let json = serde_json::to_string(&metric).unwrap();
@@ -1126,6 +1140,7 @@ mod tests {
             mls_join_time_ms: 1000,
             is_vp9_decode_supported: None,
             is_vp9_encode_supported: None,
+            total_join_time_ms: None,
         });
 
         // Try to convert to wrong type should return the original metric
@@ -1151,6 +1166,7 @@ mod tests {
                     mls_join_time_ms: 1000,
                     is_vp9_decode_supported: None,
                     is_vp9_encode_supported: None,
+                    total_join_time_ms: None,
                 }),
             ],
         };
