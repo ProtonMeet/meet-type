@@ -13,3 +13,41 @@ include:
 
 stages: 
   - sec_scan
+  - build
+  - test
+  - audit
+
+rust:check:
+  stage: build
+  image: harbor.protontech.ch/docker.io/library/rust:alpine
+  before_script:
+    - rustup component add clippy rustfmt
+  script:
+    - cargo fmt --check
+    - cargo clippy --all-features
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  interruptible: true
+
+test:
+  stage: test
+  needs: []
+  image: harbor.protontech.ch/docker.io/library/rust:alpine
+  script:
+    - cargo test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  interruptible: true
+
+cargo:audit:
+  stage: audit
+  needs:
+    - job: test
+  image: harbor.protontech.ch/docker.io/library/rust:alpine
+  before_script:
+    - apk add cargo-audit
+  script:
+    - cargo audit
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  interruptible: true

@@ -16,12 +16,13 @@ use serde::{Deserialize, Serialize};
 #[repr(u8)]
 pub enum RTCMessageInContent {
     SendCommit(MlsCommitInfo),
-    SendProposalAndCommit(MlsProposalAndCommitInfo),
+    SendProposalAndCommit(Box<MlsProposalAndCommitInfo>),
     Proposal(MlsProposalInfo),
     CommitUpdate(MlsCommitInfo),
     RemoveLeafNode(MlsRemoveLeafNodeInfo),
     LiveKitAdminChange(LiveKitAdminChangeInfo),
     Welcome(MlsWelcomeInfo),
+    JoinRequest(JoinRequestInfo),
 }
 
 /// Ratchet tree and group info bundle for MLS external commits
@@ -102,6 +103,22 @@ pub struct MlsProposalInfo {
     pub proposal: MlsMessage,
 }
 
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    tls_codec::TlsSize,
+    tls_codec::TlsDeserialize,
+    tls_codec::TlsSerialize,
+)]
+pub struct JoinRequestInfo {
+    pub request_id: Vec<u8>,
+    pub participant_uid: Vec<u8>,
+    pub encrypted_key_package: Vec<u8>,
+    pub expires_at: u64,
+}
+
 /// Version enum for GroupInfo data format
 #[derive(
     Debug,
@@ -116,15 +133,11 @@ pub struct MlsProposalInfo {
     Deserialize,
 )]
 #[repr(u32)]
+#[derive(Default)]
 pub enum GroupInfoVersion {
     V0 = 0,
+    #[default]
     V1 = 1,
-}
-
-impl Default for GroupInfoVersion {
-    fn default() -> Self {
-        GroupInfoVersion::V1 // New data defaults to V1
-    }
 }
 
 /// Error type for GroupInfo version conversion
@@ -230,9 +243,56 @@ pub struct LiveKitAdminChangeInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tls_codec::{Deserialize as _, Serialize as _};
+
+    fn sample_join_request_info() -> JoinRequestInfo {
+        JoinRequestInfo {
+            request_id: b"req-123".to_vec(),
+            participant_uid: b"user-456".to_vec(),
+            encrypted_key_package: vec![1, 2, 3, 4],
+            expires_at: 1_700_000_000,
+        }
+    }
 
     #[test]
     fn test_group_info_version_default() {
         assert_eq!(GroupInfoVersion::default(), GroupInfoVersion::V1);
+    }
+
+    #[test]
+    fn test_join_request_info_tls_roundtrip() {
+        let info = sample_join_request_info();
+
+        let mut bytes = Vec::new();
+        info.tls_serialize(&mut bytes).unwrap();
+
+        let decoded = JoinRequestInfo::tls_deserialize(&mut bytes.as_slice()).unwrap();
+        assert_eq!(info, decoded);
+    }
+
+    #[test]
+    fn test_rtc_message_in_join_request_tls_roundtrip() {
+        let msg = RTCMessageIn {
+            content: RTCMessageInContent::JoinRequest(sample_join_request_info()),
+        };
+
+        let mut bytes = Vec::new();
+        msg.tls_serialize(&mut bytes).unwrap();
+
+        let decoded = RTCMessageIn::tls_deserialize(&mut bytes.as_slice()).unwrap();
+        assert_eq!(msg, decoded);
+    }
+
+    #[test]
+    fn test_rtc_message_in_content_join_request_discriminant() {
+        let content = RTCMessageInContent::JoinRequest(JoinRequestInfo {
+            request_id: vec![],
+            participant_uid: vec![],
+            encrypted_key_package: vec![],
+            expires_at: 0,
+        });
+
+        let bytes = content.tls_serialize_detached().unwrap();
+        assert_eq!(bytes[0], 7);
     }
 }
