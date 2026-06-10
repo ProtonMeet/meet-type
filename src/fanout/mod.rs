@@ -24,6 +24,7 @@ pub enum RTCMessageInContent {
     Welcome(MlsWelcomeInfo),
     JoinRequest(JoinRequestInfo),
     JoinDecision(JoinDecisionInfo),
+    JoinRequestRemoved(JoinRequestRemovedInfo),
 }
 
 /// Ratchet tree and group info bundle for MLS external commits
@@ -150,6 +151,19 @@ pub struct JoinDecisionInfo {
 pub enum JoinDecisionStatus {
     Admitted = 0,
     Rejected = 1,
+}
+
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    tls_codec::TlsSize,
+    tls_codec::TlsDeserialize,
+    tls_codec::TlsSerialize,
+)]
+pub struct JoinRequestRemovedInfo {
+    pub participant_uid: Vec<u8>,
 }
 
 /// Error type for join decision status conversion
@@ -410,5 +424,17 @@ mod tests {
 
         let bytes = content.tls_serialize_detached().unwrap();
         assert_eq!(bytes[0], 8);
+    }
+
+    #[test]
+    fn join_request_removed_round_trip() {
+        let info = JoinRequestRemovedInfo {
+            participant_uid: b"user-456".to_vec(),
+        };
+        let content = RTCMessageInContent::JoinRequestRemoved(info.clone());
+        let mut buf = Vec::new();
+        content.tls_serialize(&mut buf).unwrap();
+        let decoded = RTCMessageInContent::tls_deserialize(&mut &buf[..]).unwrap();
+        assert_eq!(decoded, content);
     }
 }
