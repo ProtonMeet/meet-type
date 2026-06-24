@@ -1,8 +1,9 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
 use super::message::{
-    GroupInfoSummaryResponse, JoinRoomMessage, JoinRoomResponse, LeaveRoomMessage,
-    LeaveRoomResponse, WebSocketTextErrorResponse,
+    AgentStatusMessage, AgentStatusResponse, GroupInfoSummaryResponse, JoinRoomMessage,
+    JoinRoomResponse, LeaveRoomMessage, LeaveRoomResponse, UploadKeyPackageMessage,
+    UploadKeyPackageResponse, WebSocketTextErrorResponse,
 };
 
 /// WebSocket text request envelope sent from client to server.
@@ -23,6 +24,12 @@ pub enum WebSocketTextRequestCommand {
     JoinRoom(JoinRoomMessage),
     LeaveRoom(LeaveRoomMessage),
     GroupInfoSummary,
+    /// Agent sends its KeyPackage + HPKE public key + credential after the WS
+    /// is open. Server stores the KP so a host can fetch it via
+    /// `GET /v1/agent/keypackage` and seal a PSK against the HPKE key.
+    UploadKeyPackage(UploadKeyPackageMessage),
+    /// Agent reports a lifecycle transition (`ready` / `error` / `done`).
+    AgentStatus(AgentStatusMessage),
     Unknown(UnknownWebSocketCommand),
 }
 
@@ -44,6 +51,8 @@ pub enum WebSocketTextResponseCommand {
     JoinRoom(JoinRoomResponse),
     LeaveRoom(LeaveRoomResponse),
     GroupInfoSummary(GroupInfoSummaryResponse),
+    UploadKeyPackage(UploadKeyPackageResponse),
+    AgentStatus(AgentStatusResponse),
     Error(WebSocketTextErrorResponse),
     Unknown(UnknownWebSocketCommand),
 }
@@ -84,6 +93,14 @@ impl Serialize for WebSocketTextRequestCommand {
                 command: "GroupInfoSummary".to_string(),
                 payload: None,
             },
+            WebSocketTextRequestCommand::UploadKeyPackage(payload) => WebSocketCommandWire {
+                command: "UploadKeyPackage".to_string(),
+                payload: Some(serde_json::to_value(payload).map_err(serde::ser::Error::custom)?),
+            },
+            WebSocketTextRequestCommand::AgentStatus(payload) => WebSocketCommandWire {
+                command: "AgentStatus".to_string(),
+                payload: Some(serde_json::to_value(payload).map_err(serde::ser::Error::custom)?),
+            },
             WebSocketTextRequestCommand::Unknown(payload) => WebSocketCommandWire {
                 command: payload.command.clone(),
                 payload: payload.payload.clone(),
@@ -118,6 +135,22 @@ impl<'de> Deserialize<'de> for WebSocketTextRequestCommand {
                     .map_err(de::Error::custom)
             }
             "GroupInfoSummary" => Ok(WebSocketTextRequestCommand::GroupInfoSummary),
+            "UploadKeyPackage" => {
+                let payload = wire.payload.ok_or_else(|| {
+                    de::Error::custom("Missing payload for UploadKeyPackage command")
+                })?;
+                serde_json::from_value(payload)
+                    .map(WebSocketTextRequestCommand::UploadKeyPackage)
+                    .map_err(de::Error::custom)
+            }
+            "AgentStatus" => {
+                let payload = wire
+                    .payload
+                    .ok_or_else(|| de::Error::custom("Missing payload for AgentStatus command"))?;
+                serde_json::from_value(payload)
+                    .map(WebSocketTextRequestCommand::AgentStatus)
+                    .map_err(de::Error::custom)
+            }
             _ => Ok(WebSocketTextRequestCommand::Unknown(
                 UnknownWebSocketCommand {
                     command: wire.command,
@@ -144,6 +177,14 @@ impl Serialize for WebSocketTextResponseCommand {
             },
             WebSocketTextResponseCommand::GroupInfoSummary(payload) => WebSocketCommandWire {
                 command: "GroupInfoSummary".to_string(),
+                payload: Some(serde_json::to_value(payload).map_err(serde::ser::Error::custom)?),
+            },
+            WebSocketTextResponseCommand::UploadKeyPackage(payload) => WebSocketCommandWire {
+                command: "UploadKeyPackage".to_string(),
+                payload: Some(serde_json::to_value(payload).map_err(serde::ser::Error::custom)?),
+            },
+            WebSocketTextResponseCommand::AgentStatus(payload) => WebSocketCommandWire {
+                command: "AgentStatus".to_string(),
                 payload: Some(serde_json::to_value(payload).map_err(serde::ser::Error::custom)?),
             },
             WebSocketTextResponseCommand::Error(payload) => WebSocketCommandWire {
@@ -189,6 +230,22 @@ impl<'de> Deserialize<'de> for WebSocketTextResponseCommand {
                 })?;
                 serde_json::from_value(payload)
                     .map(WebSocketTextResponseCommand::GroupInfoSummary)
+                    .map_err(de::Error::custom)
+            }
+            "UploadKeyPackage" => {
+                let payload = wire.payload.ok_or_else(|| {
+                    de::Error::custom("Missing payload for UploadKeyPackage response")
+                })?;
+                serde_json::from_value(payload)
+                    .map(WebSocketTextResponseCommand::UploadKeyPackage)
+                    .map_err(de::Error::custom)
+            }
+            "AgentStatus" => {
+                let payload = wire
+                    .payload
+                    .ok_or_else(|| de::Error::custom("Missing payload for AgentStatus response"))?;
+                serde_json::from_value(payload)
+                    .map(WebSocketTextResponseCommand::AgentStatus)
                     .map_err(de::Error::custom)
             }
             "Error" => {
