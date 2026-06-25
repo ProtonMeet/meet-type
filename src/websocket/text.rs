@@ -1,9 +1,10 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
 use super::message::{
-    AgentStatusMessage, AgentStatusResponse, GroupInfoSummaryResponse, JoinRoomMessage,
-    JoinRoomResponse, LeaveRoomMessage, LeaveRoomResponse, UploadKeyPackageMessage,
-    UploadKeyPackageResponse, WebSocketTextErrorResponse,
+    AgentLeftNotification, AgentPendingNotification, AgentStatusMessage, AgentStatusResponse,
+    GroupInfoSummaryResponse, JoinRoomMessage, JoinRoomResponse, LeaveRoomMessage,
+    LeaveRoomResponse, UploadKeyPackageMessage, UploadKeyPackageResponse,
+    WebSocketTextErrorResponse,
 };
 
 /// WebSocket text request envelope sent from client to server.
@@ -53,6 +54,8 @@ pub enum WebSocketTextResponseCommand {
     GroupInfoSummary(GroupInfoSummaryResponse),
     UploadKeyPackage(UploadKeyPackageResponse),
     AgentStatus(AgentStatusResponse),
+    AgentPending(AgentPendingNotification),
+    AgentLeft(AgentLeftNotification),
     Error(WebSocketTextErrorResponse),
     Unknown(UnknownWebSocketCommand),
 }
@@ -187,6 +190,14 @@ impl Serialize for WebSocketTextResponseCommand {
                 command: "AgentStatus".to_string(),
                 payload: Some(serde_json::to_value(payload).map_err(serde::ser::Error::custom)?),
             },
+            WebSocketTextResponseCommand::AgentPending(payload) => WebSocketCommandWire {
+                command: "AgentPending".to_string(),
+                payload: Some(serde_json::to_value(payload).map_err(serde::ser::Error::custom)?),
+            },
+            WebSocketTextResponseCommand::AgentLeft(payload) => WebSocketCommandWire {
+                command: "AgentLeft".to_string(),
+                payload: Some(serde_json::to_value(payload).map_err(serde::ser::Error::custom)?),
+            },
             WebSocketTextResponseCommand::Error(payload) => WebSocketCommandWire {
                 command: "Error".to_string(),
                 payload: Some(serde_json::to_value(payload).map_err(serde::ser::Error::custom)?),
@@ -246,6 +257,22 @@ impl<'de> Deserialize<'de> for WebSocketTextResponseCommand {
                     .ok_or_else(|| de::Error::custom("Missing payload for AgentStatus response"))?;
                 serde_json::from_value(payload)
                     .map(WebSocketTextResponseCommand::AgentStatus)
+                    .map_err(de::Error::custom)
+            }
+            "AgentPending" => {
+                let payload = wire
+                    .payload
+                    .ok_or_else(|| de::Error::custom("Missing payload for AgentPending"))?;
+                serde_json::from_value(payload)
+                    .map(WebSocketTextResponseCommand::AgentPending)
+                    .map_err(de::Error::custom)
+            }
+            "AgentLeft" => {
+                let payload = wire
+                    .payload
+                    .ok_or_else(|| de::Error::custom("Missing payload for AgentLeft"))?;
+                serde_json::from_value(payload)
+                    .map(WebSocketTextResponseCommand::AgentLeft)
                     .map_err(de::Error::custom)
             }
             "Error" => {

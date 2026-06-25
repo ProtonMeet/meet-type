@@ -71,6 +71,24 @@ pub struct AgentStatusResponse {
     pub error: Option<String>,
 }
 
+/// Server-pushed notification: a new agent KeyPackage just landed for this
+/// meeting. The host's client should call `admitAgent(device_id)` to admit it.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct AgentPendingNotification {
+    pub device_id: String,
+}
+
+/// Server-pushed notification: an admitted agent has been offline past the
+/// grace window. Clients should run their designated-committer flow to issue
+/// a Remove commit for the agent's leaf, rotating the SFrame epoch for
+/// forward secrecy.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct AgentLeftNotification {
+    pub device_id: String,
+}
+
 /// Known command kind. Useful for pointing to the failed command in error responses.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
