@@ -212,6 +212,7 @@ pub enum GroupInfoVersion {
     V0 = 0,
     #[default]
     V1 = 1,
+    V2 = 2,
 }
 
 /// Error type for GroupInfo version conversion
