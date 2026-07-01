@@ -234,6 +234,7 @@ impl TryFrom<u32> for GroupInfoVersion {
         match version {
             0 => Ok(GroupInfoVersion::V0),
             1 => Ok(GroupInfoVersion::V1),
+            2 => Ok(GroupInfoVersion::V2),
             _ => Err(GroupInfoVersionError),
         }
     }
